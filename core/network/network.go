@@ -1,26 +1,9 @@
-// Package network provides core networking abstractions for libp2p.
-//
-// The network package provides the high-level Network interface for interacting
-// with other libp2p peers, which is the primary public API for initiating and
-// accepting connections to remote peers.
 package network
 
 import (
-	"context"
-	"io"
-	"time"
-
 	"github.com/libp2p/go-libp2p/core/peer"
-	"github.com/libp2p/go-libp2p/core/peerstore"
-
 	ma "github.com/multiformats/go-multiaddr"
 )
-
-// MessageSizeMax is a soft (recommended) maximum for network messages.
-// One can write more, as the interface is a stream. But it is useful
-// to bunch it up into multiple read/writes when the whole message is
-// a single, large serialized object.
-const MessageSizeMax = 1 << 22 // 4 MB
 
 // Direction represents which peer in a stream initiated a connection.
 type Direction int
@@ -33,16 +16,6 @@ const (
 	// DirOutbound is for when the local peer initiated a connection.
 	DirOutbound
 )
-
-const unrecognized = "(unrecognized)"
-
-func (d Direction) String() string {
-	str := [...]string{"Unknown", "Inbound", "Outbound"}
-	if d < 0 || int(d) >= len(str) {
-		return unrecognized
-	}
-	return str[d]
-}
 
 // Connectedness signals the capacity for a connection with a given node.
 // It is used to signal to services and other peers whether a node is reachable.
@@ -58,58 +31,23 @@ const (
 	// Deprecated: CanConnect is deprecated and will be removed in a future release.
 	//
 	// CanConnect means recently connected to peer, terminated gracefully
-	CanConnect
+	// CanConnect
 
 	// Deprecated: CannotConnect is deprecated and will be removed in a future release.
 	//
 	// CannotConnect means recently attempted connecting but failed to connect.
 	// (should signal "made effort, failed")
-	CannotConnect
+	// CannotConnect
 
 	// Limited means we have a transient connection to the peer, but aren't fully connected.
-	Limited
+	// Limited
 )
-
-func (c Connectedness) String() string {
-	str := [...]string{"NotConnected", "Connected", "CanConnect", "CannotConnect", "Limited"}
-	if c < 0 || int(c) >= len(str) {
-		return unrecognized
-	}
-	return str[c]
-}
-
-// Reachability indicates how reachable a node is.
-type Reachability int
-
-const (
-	// ReachabilityUnknown indicates that the reachability status of the
-	// node is unknown.
-	ReachabilityUnknown Reachability = iota
-
-	// ReachabilityPublic indicates that the node is reachable from the
-	// public internet.
-	ReachabilityPublic
-
-	// ReachabilityPrivate indicates that the node is not reachable from the
-	// public internet.
-	//
-	// NOTE: This node may _still_ be reachable via relays.
-	ReachabilityPrivate
-)
-
-func (r Reachability) String() string {
-	str := [...]string{"Unknown", "Public", "Private"}
-	if r < 0 || int(r) >= len(str) {
-		return unrecognized
-	}
-	return str[r]
-}
 
 // ConnStats stores metadata pertaining to a given Conn.
 type ConnStats struct {
 	Stats
 	// NumStreams is the number of streams on the connection.
-	NumStreams int
+	// NumStreams int
 }
 
 // Stats stores metadata pertaining to a given Stream / Conn.
@@ -117,13 +55,13 @@ type Stats struct {
 	// Direction specifies whether this is an inbound or an outbound connection.
 	Direction Direction
 	// Opened is the timestamp when this connection was opened.
-	Opened time.Time
+	// Opened time.Time
 	// Limited indicates that this connection is Limited. It maybe limited by
 	// bytes or time. In practice, this is a connection formed over a circuit v2
 	// relay.
-	Limited bool
+	// Limited bool
 	// Extra stores additional metadata about this connection.
-	Extra map[interface{}]interface{}
+	// Extra map[interface{}]interface{}
 }
 
 // StreamHandler is the type of function used to listen for
@@ -136,18 +74,18 @@ type StreamHandler func(Stream)
 // are encrypted with a TLS-like protocol.
 type Network interface {
 	Dialer
-	io.Closer
+	// io.Closer
 
 	// SetStreamHandler sets the handler for new streams opened by the
 	// remote side. This operation is thread-safe.
-	SetStreamHandler(StreamHandler)
+	// SetStreamHandler(StreamHandler)
 
 	// NewStream returns a new stream to given peer p.
 	// If there is no connection to p, attempts to create one.
-	NewStream(context.Context, peer.ID) (Stream, error)
+	// NewStream(context.Context, peer.ID) (Stream, error)
 
 	// Listen tells the network to start listening on given multiaddrs.
-	Listen(...ma.Multiaddr) error
+	// Listen(...ma.Multiaddr) error
 
 	// ListenAddresses returns a list of addresses at which this network listens.
 	ListenAddresses() []ma.Multiaddr
@@ -155,10 +93,10 @@ type Network interface {
 	// InterfaceListenAddresses returns a list of addresses at which this network
 	// listens. It expands "any interface" addresses (/ip4/0.0.0.0, /ip6/::) to
 	// use the known local interfaces.
-	InterfaceListenAddresses() ([]ma.Multiaddr, error)
+	// InterfaceListenAddresses() ([]ma.Multiaddr, error)
 
 	// ResourceManager returns the ResourceManager associated with this network
-	ResourceManager() ResourceManager
+	// ResourceManager() ResourceManager
 }
 
 // Dialer represents a service that can dial out to peers
@@ -168,13 +106,13 @@ type Dialer interface {
 	// Peerstore returns the internal peerstore
 	// This is useful to tell the dialer about a new address for a peer.
 	// Or use one of the public keys found out over the network.
-	Peerstore() peerstore.Peerstore
+	// Peerstore() peerstore.Peerstore
 
 	// LocalPeer returns the local peer associated with this network
-	LocalPeer() peer.ID
+	// LocalPeer() peer.ID
 
 	// DialPeer establishes a connection to a given peer
-	DialPeer(context.Context, peer.ID) (Conn, error)
+	// DialPeer(context.Context, peer.ID) (Conn, error)
 
 	// ClosePeer closes the connection to a given peer
 	ClosePeer(peer.ID) error
@@ -193,18 +131,5 @@ type Dialer interface {
 
 	// Notify/StopNotify register and unregister a notifiee for signals
 	Notify(Notifiee)
-	StopNotify(Notifiee)
-
-	// CanDial returns whether the dialer can dial peer p at addr
-	CanDial(p peer.ID, addr ma.Multiaddr) bool
+	// StopNotify(Notifiee)
 }
-
-// AddrDelay provides an address along with the delay after which the address
-// should be dialed
-type AddrDelay struct {
-	Addr  ma.Multiaddr
-	Delay time.Duration
-}
-
-// DialRanker provides a schedule of dialing the provided addresses
-type DialRanker func([]ma.Multiaddr) []AddrDelay

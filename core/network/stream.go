@@ -1,6 +1,9 @@
 package network
 
 import (
+	"io"
+	"time"
+
 	"github.com/libp2p/go-libp2p/core/protocol"
 )
 
@@ -10,14 +13,18 @@ import (
 //
 // Streams are backed by a multiplexer underneath the hood.
 type Stream interface {
-	MuxedStream
-
-	// ID returns an identifier that uniquely identifies this Stream within this
-	// host, during this run. Stream IDs may repeat across restarts.
-	ID() string
+	io.Reader
+	io.Writer
+	io.Closer
 
 	Protocol() protocol.ID
-	SetProtocol(id protocol.ID) error
+
+	// CloseWrite closes the stream for writing but leaves it open for
+	// reading.
+	//
+	// CloseWrite does not free the stream, users must still call Close or
+	// Reset.
+	CloseWrite() error
 
 	// Stat returns metadata pertaining to this stream.
 	Stat() Stats
@@ -25,6 +32,10 @@ type Stream interface {
 	// Conn returns the connection this stream is part of.
 	Conn() Conn
 
-	// Scope returns the user's view of this stream's resource scope
-	Scope() StreamScope
+	// Reset closes both ends of the stream. Use this to tell the remote
+	// side to hang up and go away.
+	Reset() error
+
+	SetReadDeadline(time.Time) error
+	SetWriteDeadline(time.Time) error
 }
