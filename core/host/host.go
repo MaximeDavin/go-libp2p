@@ -1,30 +1,18 @@
-// Package host provides the core Host interface for libp2p.
-//
-// Host represents a single libp2p node in a peer-to-peer network.
 package host
 
 import (
 	"context"
 
-	"github.com/libp2p/go-libp2p/core/connmgr"
-	"github.com/libp2p/go-libp2p/core/event"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/peerstore"
 	"github.com/libp2p/go-libp2p/core/protocol"
-
 	ma "github.com/multiformats/go-multiaddr"
 )
 
-// Host is an object participating in a p2p network, which
-// implements protocols or provides services. It handles
-// requests like a Server, and issues requests like a Client.
-// It is called Host because it is both Server and Client (and Peer
-// may be confusing).
 type Host interface {
 	// ID returns the (local) peer.ID associated with this Host
 	ID() peer.ID
-
 	// Peerstore returns the Host's repository of Peer Addresses and Keys.
 	Peerstore() peerstore.Peerstore
 
@@ -50,10 +38,6 @@ type Host interface {
 	// (Thread-safe)
 	SetStreamHandler(pid protocol.ID, handler network.StreamHandler)
 
-	// SetStreamHandlerMatch sets the protocol handler on the Host's Mux
-	// using a matching function for protocol selection.
-	SetStreamHandlerMatch(protocol.ID, func(protocol.ID) bool, network.StreamHandler)
-
 	// RemoveStreamHandler removes a handler on the mux that was set by
 	// SetStreamHandler
 	RemoveStreamHandler(pid protocol.ID)
@@ -66,10 +50,4 @@ type Host interface {
 
 	// Close shuts down the host, its Network, and services.
 	Close() error
-
-	// ConnManager returns this hosts connection manager
-	ConnManager() connmgr.ConnManager
-
-	// EventBus returns the hosts eventbus
-	EventBus() event.Bus
 }
