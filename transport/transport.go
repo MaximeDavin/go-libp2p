@@ -5,7 +5,6 @@ import (
 	"io"
 
 	ma "github.com/multiformats/go-multiaddr"
-	manet "github.com/multiformats/go-multiaddr/net"
 )
 
 // Transport represents any device by which you can connect to and accept
@@ -23,7 +22,11 @@ type Transport interface {
 }
 
 type Listener interface {
-	Accept() (manet.Conn, error)
+	// Accept waits for and returns the next connection to the listener.
+	Accept() (StreamConn, error)
+	// Close closes the listener.
+	// Any blocked Accept operations will be unblocked and return errors.
+	Close() error
 }
 
 type Stream interface {
