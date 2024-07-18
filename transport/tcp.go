@@ -3,9 +3,11 @@ package transport
 import (
 	"context"
 	"errors"
+	"sync"
 
 	"github.com/hashicorp/yamux"
 	"github.com/libp2p/go-libp2p/p2p/security/noise"
+	"google.golang.org/appengine/log"
 
 	mplex "github.com/libp2p/go-mplex"
 	ma "github.com/multiformats/go-multiaddr"
@@ -26,17 +28,9 @@ type MuxedConn struct {
 	mplex.Multiplex
 }
 
-func (t *TcpTransport) Dial(ctx context.Context, addr ma.Multiaddr, pid string) (StreamConn, error) {
-	// Get raw connection
-	var d manet.Dialer
-	conn, err := d.DialContext(ctx, addr)
-	if err != nil {
-		return nil, err
-	}
-	const initiator = true
-
+func upgrade(ctx context.Context, conn manet.Conn, addr ma.Multiaddr, pid string, initiator bool) (StreamConn, error) {
 	// Upgrade security
-	_, err = mss.SelectOneOf([]string{NOISE_ID}, conn)
+	_, err := mss.SelectOneOf([]string{NOISE_ID}, conn)
 	if err != nil {
 		// Not compatible with noise
 		return nil, err
@@ -55,7 +49,7 @@ func (t *TcpTransport) Dial(ctx context.Context, addr ma.Multiaddr, pid string) 
 	}
 	switch streamproto {
 	case YAMUX_ID:
-		// TODO: build and pass config
+		// TODO: build and pass yamux config
 		yconn, err := yamux.Client(sconn, nil)
 		if err != nil {
 			return nil, err
@@ -72,14 +66,58 @@ func (t *TcpTransport) Dial(ctx context.Context, addr ma.Multiaddr, pid string) 
 	default:
 		return nil, errors.New("Programming error: this muxer is not supported")
 	}
+}
 
+func (t *TcpTransport) Dial(ctx context.Context, addr ma.Multiaddr, pid string) (StreamConn, error) {
+	// Get raw connection
+	var d manet.Dialer
+	conn, err := d.DialContext(ctx, addr)
+	if err != nil {
+		return nil, err
+	}
+	return upgrade(ctx, conn, addr, pid, true)
 }
 
 func (t *TcpTransport) Listen(addr ma.Multiaddr) (Listener, error) {
-	return manet.Listen(addr)
+	l, err := t.Listen(addr)
+	if err != nil {
+		return nil, err
+	}
+
 }
 
-// func (l *manet.Listener) Accept() (manet.Conn, error) {
+type TcpListener struct{}
 
-// 	c, err := manet.Listener.Accept()
-// }
+var _ Listener = &TcpListener{}
+
+func NewTCPListener() (*TcpTransport, error) {
+	return &TcpTransport{}, nil
+}
+
+func (l *TcpListener) Accept() (manet.Conn, error) {
+	var ll manet.Listener
+	var wg sync.WaitGroup
+	defer func() {
+		ll.Close()
+		wg.Wait()
+	}()
+	for {
+		conn, err := ll.Accept()
+		if err != nil {
+			return nil, err
+		}
+		log.Debugf("listener %s got connection: %s <---> %s",
+			l,
+			conn.LocalMultiaddr(),
+			conn.RemoteMultiaddr(),
+		)
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			// Let's upgrade the connection
+			upgrade(ctx, conn, addr, pid, true)
+
+		}()
+
+	}
+}
