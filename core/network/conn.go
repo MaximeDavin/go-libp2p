@@ -1,6 +1,10 @@
 package network
 
 import (
+	"context"
+	"io"
+	"net"
+
 	"github.com/libp2p/go-libp2p/core/peer"
 	ma "github.com/multiformats/go-multiaddr"
 )
@@ -11,12 +15,11 @@ import (
 //
 //	stream.Conn().RemotePeer()
 type Conn interface {
-	// io.Closer
+	io.Closer
 
-	ConnSecurity
-	ConnMultiaddrs
+	SecureConnMixin
+	ConnMultiaddrsMixin
 	ConnStat
-	// ConnScoper
 
 	// ID returns an identifier that uniquely identifies this Conn within this
 	// host, during this run. Connection IDs may repeat across restarts.
@@ -33,32 +36,39 @@ type Conn interface {
 	// IsClosed() bool
 }
 
+// ConnSecurity is the interface that one can mix into a connection interface to
+// give it the security methods.
+type SecureConnMixin interface {
+	// LocalPeer returns our peer ID
+	LocalPeer() peer.ID
+	// RemotePeer returns the peer ID of the remote peer.
+	RemotePeer() peer.ID
+}
+
+type SecureConn interface {
+	net.Conn
+	SecureConnMixin
+}
+
 // ConnMultiaddrs is an interface mixin for connection types that provide multiaddr
 // addresses for the endpoints.
-type ConnMultiaddrs interface {
+type ConnMultiaddrsMixin interface {
 	// LocalMultiaddr returns the local Multiaddr associated
 	// with this connection
-	// LocalMultiaddr() ma.Multiaddr
+	LocalMultiaddr() ma.Multiaddr
 
 	// RemoteMultiaddr returns the remote Multiaddr associated
 	// with this connection
 	RemoteMultiaddr() ma.Multiaddr
 }
 
-// ConnSecurity is the interface that one can mix into a connection interface to
-// give it the security methods.
-type ConnSecurity interface {
-	// LocalPeer returns our peer ID
-	// LocalPeer() peer.ID
-
-	// RemotePeer returns the peer ID of the remote peer.
-	RemotePeer() peer.ID
-
-	// RemotePublicKey returns the public key of the remote peer.
-	// RemotePublicKey() ic.PubKey
-
-	// ConnState returns information about the connection state.
-	// ConnState() ConnectionState
+type MuxedConn interface {
+	// Close closes the stream muxer and the the underlying net.Conn.
+	io.Closer
+	// OpenStream creates a new stream.
+	OpenStream(context.Context) (MuxedStream, error)
+	// AcceptStream accepts a stream opened by the other side.
+	AcceptStream() (MuxedStream, error)
 }
 
 // ConnStat is an interface mixin for connection types that provide connection statistics.

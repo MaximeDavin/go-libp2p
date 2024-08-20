@@ -11,13 +11,14 @@ type AddrInfo struct {
 	Addrs []ma.Multiaddr
 }
 
-func (pi AddrInfo) String() string {}
+// func (pi AddrInfo) String() string {
+// }
 
 // AddrInfosFromP2pAddrs converts a set of Multiaddrs to a set of AddrInfos.
-func AddrInfosFromP2pAddrs(maddrs ...ma.Multiaddr) ([]AddrInfo, error) {}
+// func AddrInfosFromP2pAddrs(maddrs ...ma.Multiaddr) ([]AddrInfo, error) {}
 
 // AddrInfoFromP2pAddr converts a Multiaddr to an AddrInfo.
-func AddrInfoFromP2pAddr(m ma.Multiaddr) (*AddrInfo, error) {}
+// func AddrInfoFromP2pAddr(m ma.Multiaddr) (*AddrInfo, error) {}
 
 // AddrInfoFromString builds an AddrInfo from the string representation of a Multiaddr
-func AddrInfoFromString(s string) (*AddrInfo, error) {}
+// func AddrInfoFromString(s string) (*AddrInfo, error) {}
