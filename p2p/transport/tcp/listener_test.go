@@ -13,19 +13,29 @@ import (
 	"github.com/prysmaticlabs/prysm/v5/testing/require"
 )
 
-func createTransportAndListener(t *testing.T) (*tcp.TcpTransport, transport.Listener) {
+func createTransport(t *testing.T) *tcp.TcpTransport {
 	t.Helper()
 
 	tcp, err := tcp.NewTCPTransport()
 	require.NoError(t, err)
+	return tcp
+}
 
+func createTransportWithOptions(t *testing.T, options tcp.TcpTransportOptions) *tcp.TcpTransport {
+	t.Helper()
+
+	tcp, err := tcp.NewTCPTransportWithOptions(options)
+	require.NoError(t, err)
+	return tcp
+}
+
+func createListener(t *testing.T, tcp *tcp.TcpTransport) transport.Listener {
 	addr, err := ma.NewMultiaddr("/ip4/127.0.0.1/tcp/0")
 	require.NoError(t, err)
 
 	l, err := tcp.Listen(addr)
 	require.NoError(t, err)
-
-	return tcp, l
+	return l
 }
 
 func testConn(t *testing.T, clientConn, serverConn transport.UpgradedConn) {
@@ -47,7 +57,8 @@ func testConn(t *testing.T, clientConn, serverConn transport.UpgradedConn) {
 }
 
 func TestAcceptSingleConn(t *testing.T) {
-	tcp, l := createTransportAndListener(t)
+	tcp := createTransport(t)
+	l := createListener(t, tcp)
 	defer l.Close()
 
 	cconn, err := tcp.Dial(context.Background(), l.Multiaddr(), "")
@@ -60,7 +71,8 @@ func TestAcceptSingleConn(t *testing.T) {
 }
 
 func TestAcceptMultipleConns(t *testing.T) {
-	tcp, l := createTransportAndListener(t)
+	tcp := createTransport(t)
+	l := createListener(t, tcp)
 	defer l.Close()
 
 	var toClose []io.Closer
@@ -86,9 +98,12 @@ func TestAcceptMultipleConns(t *testing.T) {
 }
 
 func TestConnectionsClosedIfNotAccepted(t *testing.T) {
-	var timeout = 2 * time.Second
+	var timeout = 100 * time.Millisecond
+	options := tcp.DefaultTcpTransportOptions
+	options.AcceptTimeout = timeout
 
-	tcp, l := createTransportAndListener(t)
+	tcp := createTransportWithOptions(t, options)
+	l := createListener(t, tcp)
 	defer l.Close()
 
 	var ctx = context.Background()
@@ -121,8 +136,11 @@ func TestConnectionsClosedIfNotAccepted(t *testing.T) {
 
 func TestFailedUpgradeOnListen(t *testing.T) {
 	// id, u := createUpgraderWithMuxers(t, []upgrader.StreamMuxer{{ID: "errorMuxer", Muxer: &errorMuxer{}}}, nil, nil)
-
-	tcp, l := createTransportAndListener(t)
+	options := tcp.DefaultTcpTransportOptions
+	options.MuxSupported = []string{"testErrorMuxer"}
+	tcp := createTransportWithOptions(t, options)
+	l := createListener(t, tcp)
+	defer l.Close()
 
 	errCh := make(chan error)
 	go func() {
@@ -131,7 +149,7 @@ func TestFailedUpgradeOnListen(t *testing.T) {
 	}()
 
 	_, err := tcp.Dial(context.Background(), l.Multiaddr(), "")
-	require.ErrorContains(t, "errorMuxer", err)
+	require.ErrorContains(t, "muxer", err)
 
 	// close the listener.
 	l.Close()

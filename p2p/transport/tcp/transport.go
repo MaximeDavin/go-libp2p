@@ -7,14 +7,13 @@ import (
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/transport"
+	"github.com/libp2p/go-libp2p/p2p/muxer/yamux"
+	"github.com/libp2p/go-libp2p/p2p/security/noise"
 
 	ma "github.com/multiformats/go-multiaddr"
 	manet "github.com/multiformats/go-multiaddr/net"
 	"github.com/sirupsen/logrus"
 )
-
-// TODO: config management
-const DEFAULT_ACCEPT_TIMEOUT = 2 * time.Second
 
 var log = logrus.WithFields(logrus.Fields{
 	"prefix":    "p2p",
@@ -22,15 +21,29 @@ var log = logrus.WithFields(logrus.Fields{
 })
 
 type TcpTransport struct {
-	acceptTimeout time.Duration
+	TcpTransportOptions
+}
+
+type TcpTransportOptions struct {
+	AcceptTimeout     time.Duration
+	SecuritySupported []string
+	MuxSupported      []string
+}
+
+var DefaultTcpTransportOptions TcpTransportOptions = TcpTransportOptions{
+	AcceptTimeout:     15 * time.Second,
+	SecuritySupported: []string{noise.ID},
+	MuxSupported:      []string{yamux.ID},
 }
 
 var _ transport.Transport = &TcpTransport{}
 
 func NewTCPTransport() (*TcpTransport, error) {
-	return &TcpTransport{
-		acceptTimeout: DEFAULT_ACCEPT_TIMEOUT,
-	}, nil
+	return NewTCPTransportWithOptions(DefaultTcpTransportOptions)
+}
+
+func NewTCPTransportWithOptions(options TcpTransportOptions) (*TcpTransport, error) {
+	return &TcpTransport{options}, nil
 }
 
 func (t *TcpTransport) Dial(ctx context.Context, addr ma.Multiaddr, pid peer.ID) (transport.UpgradedConn, error) {
@@ -39,7 +52,7 @@ func (t *TcpTransport) Dial(ctx context.Context, addr ma.Multiaddr, pid peer.ID)
 	if err != nil {
 		return nil, err
 	}
-	return upgrade(ctx, conn, addr, pid, network.DirOutbound)
+	return upgrade(ctx, t, conn, pid, network.DirOutbound)
 }
 
 // Listen returns a listener that listens on the given multiaddr for inbound
@@ -76,11 +89,11 @@ func (t *TcpTransport) Listen(addr ma.Multiaddr) (transport.Listener, error) {
 			)
 
 			go func() {
-				ctx, cancel := context.WithTimeout(context.Background(), t.acceptTimeout)
+				ctx, cancel := context.WithTimeout(context.Background(), t.AcceptTimeout)
 				defer cancel()
 
 				// Upgrade the connection: add security and stream multiplexing
-				sconn, err := upgrade(ctx, conn, conn.RemoteMultiaddr(), "", network.DirInbound)
+				sconn, err := upgrade(ctx, t, conn, "", network.DirInbound)
 				if err != nil {
 					log.Warnf("listener: connection from %s update failed %s",
 						conn.RemoteMultiaddr(),

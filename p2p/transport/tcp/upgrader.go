@@ -9,7 +9,6 @@ import (
 	"github.com/libp2p/go-libp2p/core/transport"
 	"github.com/libp2p/go-libp2p/p2p/muxer/yamux"
 	"github.com/libp2p/go-libp2p/p2p/security/noise"
-	ma "github.com/multiformats/go-multiaddr"
 	manet "github.com/multiformats/go-multiaddr/net"
 	mss "github.com/multiformats/go-multistream"
 )
@@ -24,9 +23,9 @@ type conn struct {
 
 var _ transport.UpgradedConn = &conn{}
 
-func upgrade(ctx context.Context, rawConn manet.Conn, addr ma.Multiaddr, pid peer.ID, direction network.Direction) (transport.UpgradedConn, error) {
+func upgrade(ctx context.Context, t *TcpTransport, rawConn manet.Conn, pid peer.ID, direction network.Direction) (transport.UpgradedConn, error) {
 	// Upgrade security
-	_, err := mss.SelectOneOf([]string{noise.ID}, rawConn)
+	_, err := mss.SelectOneOf(t.SecuritySupported, rawConn)
 	if err != nil {
 		// TODO: error "Not compatible with noise"
 		return nil, err
@@ -35,18 +34,20 @@ func upgrade(ctx context.Context, rawConn manet.Conn, addr ma.Multiaddr, pid pee
 	if err != nil {
 		return nil, err
 	}
-
+	log.Printf("1")
 	// Upgrade stream muxer
-	var streamMuxerIDs = []string{YAMUX_ID}
-	streamproto, err := mss.SelectOneOf(streamMuxerIDs, sconn)
+	streamproto, err := mss.SelectOneOf(t.MuxSupported, sconn)
 	if err != nil {
 		// Muxer negociation failed
 		return nil, err
 	}
+	log.Printf("2")
+
 	if streamproto != YAMUX_ID {
 		// TODO: error handling
-		return nil, errors.New("Programming error: this muxer is not supported")
+		return nil, errors.New(": this muxer is not supported")
 	}
+	log.Printf("3")
 	mconn, err := yamux.Multiplex(sconn, direction)
 	tc := &conn{
 		MuxedConn:           mconn,
