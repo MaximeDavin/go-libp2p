@@ -17,8 +17,6 @@ const ID = "/yamux/1.0.0"
 type Transport yamux.Config
 
 func Multiplex(conn network.SecureConn, direction network.Direction) (network.MuxedConn, error) {
-	// var s *yamux.Session
-	// return (*yamuxConn)(s), nil
 	session, err := yamux.Client(conn, nil)
 	if err != nil {
 		return nil, err
@@ -44,4 +42,8 @@ func (y *yamuxConn) AcceptStream() (network.MuxedStream, error) {
 
 func (y *yamuxConn) Close() error {
 	return y.Session.Close()
+}
+
+func (y *yamuxConn) IsClosed() bool {
+	return y.Session.IsClosed()
 }

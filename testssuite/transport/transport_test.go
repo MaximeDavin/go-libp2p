@@ -11,7 +11,6 @@ import (
 
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/prysmaticlabs/prysm/v5/testing/require"
-	"github.com/sirupsen/logrus"
 )
 
 func getFunctionName(i interface{}) string {
@@ -19,8 +18,6 @@ func getFunctionName(i interface{}) string {
 }
 
 func TestTcpTransport(t *testing.T) {
-	logrus.SetLevel(logrus.DebugLevel)
-
 	var Subtests = []func(t *testing.T, ta, tb transport.Transport, maddr ma.Multiaddr, peerA peer.ID){
 		SubtestBasic,
 		SubtestCancel,

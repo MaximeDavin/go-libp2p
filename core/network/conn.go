@@ -69,6 +69,8 @@ type MuxedConn interface {
 	OpenStream(context.Context) (MuxedStream, error)
 	// AcceptStream accepts a stream opened by the other side.
 	AcceptStream() (MuxedStream, error)
+	// Check if the connection has shutdown
+	IsClosed() bool
 }
 
 // ConnStat is an interface mixin for connection types that provide connection statistics.

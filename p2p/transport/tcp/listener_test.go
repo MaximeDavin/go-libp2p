@@ -134,12 +134,10 @@ func TestConnectionsClosedIfNotAccepted(t *testing.T) {
 	require.NoError(t, <-errCh)
 }
 
+// Check that upgrade error is correctly returned to the dialer and listen
 func TestFailedUpgradeOnListen(t *testing.T) {
-	// id, u := createUpgraderWithMuxers(t, []upgrader.StreamMuxer{{ID: "errorMuxer", Muxer: &errorMuxer{}}}, nil, nil)
-	options := tcp.DefaultTcpTransportOptions
-	options.MuxSupported = []string{"testErrorMuxer"}
-	tcp := createTransportWithOptions(t, options)
-	l := createListener(t, tcp)
+	ttcp := createTransport(t)
+	l := createListener(t, ttcp)
 	defer l.Close()
 
 	errCh := make(chan error)
@@ -148,10 +146,75 @@ func TestFailedUpgradeOnListen(t *testing.T) {
 		errCh <- err
 	}()
 
-	_, err := tcp.Dial(context.Background(), l.Multiaddr(), "")
-	require.ErrorContains(t, "muxer", err)
+	options := tcp.DefaultTcpTransportOptions
+	options.StreamSupported = "testErrorMuxer"
+	tcp := createTransportWithOptions(t, options)
 
-	// close the listener.
+	_, err := tcp.Dial(context.Background(), l.Multiaddr(), "dialer")
 	l.Close()
-	require.ErrorIs(t, err, <-errCh)
+
+	// Check dialer error
+	require.ErrorContains(t, "protocols not supported: [testErrorMuxer]", err)
+	// Check listener error
+	require.ErrorContains(t, "closed", <-errCh)
+}
+
+func TestListenerClose(t *testing.T) {
+	tcp := createTransport(t)
+	l := createListener(t, tcp)
+
+	errCh := make(chan error)
+	defer close(errCh)
+	go func() {
+		_, err := l.Accept()
+		errCh <- err
+	}()
+
+	select {
+	case err := <-errCh:
+		t.Fatalf("connection closed earlier than expected. expected nothing on channel, got: %v", err)
+	case <-time.After(200 * time.Millisecond):
+		// nothing in 200ms.
+	}
+
+	// unblocks Accept when it is closed.
+	require.NoError(t, l.Close())
+	require.ErrorContains(t, "use of closed network connection", <-errCh)
+
+	// doesn't accept new connections when it is closed
+	_, err := tcp.Dial(context.Background(), l.Multiaddr(), "")
+	require.ErrorContains(t, "refused", err)
+}
+
+func TestListenerCloseClosesQueued(t *testing.T) {
+	tcp := createTransport(t)
+	l := createListener(t, tcp)
+
+	var conns []transport.UpgradedConn
+	for i := 0; i < 10; i++ {
+		conn, err := tcp.Dial(context.Background(), l.Multiaddr(), "")
+		require.NoError(t, err)
+		conns = append(conns, conn)
+	}
+
+	// wait for all the dials to happen.
+	time.Sleep(100 * time.Millisecond)
+
+	// all the connections are opened.
+	for _, c := range conns {
+		require.Equal(t, false, c.IsClosed())
+	}
+
+	// expect that all the connections will be closed.
+	err := l.Close()
+	require.NoError(t, err)
+
+	for _, c := range conns {
+		_ = c.Close()
+	}
+	// wait for all the connections to close.
+	time.Sleep(500 * time.Millisecond)
+	for _, c := range conns {
+		require.Equal(t, true, c.IsClosed())
+	}
 }
